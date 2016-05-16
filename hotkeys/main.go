@@ -32,37 +32,53 @@ type Hotkey struct {
 func GetHotkeys(w rest.ResponseWriter, r *rest.Request) {
 	ctx := appengine.NewContext(r.Request)
 
-	q := datastore.NewQuery("Hotkey")
+	var all_hotkeys []Hotkey
 
-	name := r.URL.Query().Get("name")
-	if name != "" {
-		q = q.Filter("Name =", name)
-	}
-	platform := r.URL.Query().Get("platform")
-	if platform != "" {
-		q = q.Filter("Platform =", platform)
-	}
-	group := r.URL.Query().Get("group")
-	if group != "" {
-		q = q.Filter("Group =", group)
-	}
-	_type := r.URL.Query().Get("type")
-	if _type != "" {
-		q = q.Filter("Type =", _type)
-	}
 	url := r.URL.Query().Get("url")
-	if url != "" {
-		q = q.Filter("Url =", url)
-	}
-	var hotkeys []Hotkey
-	q = q.Order("Order")
-	_, err := q.GetAll(ctx, &hotkeys)
-	if err != nil {
-		log.Errorf(ctx, "", err)
+	// if url != "" {
+	//     q = q.Filter("Url =", url)
+	// }
+
+	cleanedUri := cleanUris(url)
+	for i := 0; i < len(cleanedUri); i++ {
+		q := datastore.NewQuery("Hotkey")
+
+		name := r.URL.Query().Get("name")
+		if name != "" {
+			q = q.Filter("Name =", name)
+		}
+		platform := r.URL.Query().Get("platform")
+		if platform != "" {
+			q = q.Filter("Platform =", platform)
+		}
+		group := r.URL.Query().Get("group")
+		if group != "" {
+			q = q.Filter("Group =", group)
+		}
+		_type := r.URL.Query().Get("type")
+		if _type != "" {
+			q = q.Filter("Type =", _type)
+		}
+		q = q.Order("Order")
+
+		hotkeys := []Hotkey{}
+
+		log.Infof(ctx, "Search for %s", cleanedUri[i])
+		q = q.Filter("Url =", cleanedUri[i])
+
+		_, err := q.GetAll(ctx, &hotkeys)
+		if err != nil {
+			log.Errorf(ctx, "", err)
+		}
+
+		log.Infof(ctx, "Result len: %i", hotkeys)
+		if len(hotkeys) > 0 {
+			all_hotkeys = append(all_hotkeys, hotkeys...)
+		}
 	}
 
-	if hotkeys != nil {
-		w.WriteJson(&hotkeys)
+	if all_hotkeys != nil {
+		w.WriteJson(&all_hotkeys)
 	} else {
 		w.WriteJson([]int{})
 	}
@@ -176,11 +192,12 @@ func PullUpdateHotkeys(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	for i := 0; i < len(hotkeys) / 500; i++ {
-		_, err = datastore.PutMulti(ctx, keys, hotkeys[i: (i + 1) * 500])
+		_, err = datastore.PutMulti(ctx, keys[i: (i + 1) * 500], hotkeys[i: (i + 1) * 500])
 		if err != nil {
 			rest.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		log.Infof(ctx, "Insert records.")
 	}
 
 	w.WriteJson(&hotkeys)
