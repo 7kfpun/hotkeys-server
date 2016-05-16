@@ -127,7 +127,7 @@ func BulkInsertHotkeys(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-  w.WriteJson(&hotkeys)
+	w.WriteJson(&hotkeys)
 }
 
 func PullUpdateHotkeys(w rest.ResponseWriter, r *rest.Request) {
@@ -175,13 +175,15 @@ func PullUpdateHotkeys(w rest.ResponseWriter, r *rest.Request) {
 		keys = append(keys, datastore.NewIncompleteKey(ctx, "Hotkey", nil))
 	}
 
-	_, err = datastore.PutMulti(ctx, keys, hotkeys)
-	if err != nil {
-		rest.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	for i := 0; i < len(hotkeys) / 500; i++ {
+		_, err = datastore.PutMulti(ctx, keys, hotkeys[i: (i + 1) * 500])
+		if err != nil {
+			rest.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
-  w.WriteJson(&hotkeys)
+	w.WriteJson(&hotkeys)
 }
 
 func init() {
